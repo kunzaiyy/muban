@@ -1,5 +1,7 @@
 import cv2
 import numpy as np
+import matplotlib.pyplot as plt
+import math
 
 def sliding_window(image, stepSize, windowSize):
     # slide a window across the image
@@ -52,20 +54,117 @@ def handle_img(slice):
     #cv2.imwrite("C:/Users/ASUS/Desktop/2.png", src)
     return lx, ly
 
+def duobianxingbijin():
+    img = cv2.imread('/home/lk/Desktop/项目/裁剪后的/thresh2.png')
 
+    gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+    ret, binary = cv2.threshold(gray, 80, 255, cv2.THRESH_BINARY)
 
+    contours, hierarchy = cv2.findContours(binary, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
+
+    for i, contour in enumerate(contours):
+        x, y, w, h = cv2.boundingRect(contour)  # 外接矩形
+        mm = cv2.moments(contour)  # 几何矩
+
+        approxCurve = cv2.approxPolyDP(contour, 0, True)  # 多边形逼近
+        if approxCurve.shape[0] > 3:  # 多边形边大于6就显示
+            cv2.drawContours(img, contours, i, (0, 255, 0), 2)
+        # cv2.rectangle(img, (x, y), (x + w, y + h), (0, 0, 255), 2)
+
+    #cv2.imwrite('/home/lk/Desktop/项目/裁剪后的/thresh21.png', img)
+    #cv2.imshow("img", img)
+    #cv2.waitKey(0)
+    #cv2.destroyAllWindows()
+    return img
 def access_pixels(slice):
     print(slice.shape)
     a=[]
     h=slice.shape[0]
     w=slice.shape[1]
+    c=slice.shape[2]
+    green_pix_ind=[0,255,0]
     print('weight : % s,height : % s'%(w,h))
     for row in range(h):
         for col in range(w):
-            pv=slice[row,col]
-            while(pv==255):
-                a.append(pv)
+            for channel in range(c):
+                if( (Img[(i,j)][:]==green_pix_ind ).all() ):
+                    pv=slice[row,col,c]
+                    while(pv==255):
+                        a.append(pv)
+    return a
+
+def green_points(slice):
+    #slice=cv2.imread('/home/lk/Desktop/项目/裁剪后的/finaladf (copy).png')
+    print(slice.shape)
+
+    h=slice.shape[0]
+    w=slice.shape[1]
+    c=slice.shape[2]
+    green_pix_ind=[0,255,0]
+    red_pix_ind=[0,0,255]
+    print('weight : % s,height : % s'%(w,h))
+    a = []
+    b = []
+    d = []
+    for row in range(h):
+        for col in range(w):
+            for channel in range(c):
+                if( (slice[(row,col)][:]==green_pix_ind ).all() ):
+                    pv=(row,col)
+
+                    a.append(row)
+                    b.append(col)
+                    d.append(pv)
+                    #print(a)
+                    #slice[(row, col)][:] = red_pix_ind
+    #cv2.imshow('sdf',slice)
+    #cv2.waitKey(0)
+    #cv2.destroyAllWindows()
+    #a.reverse(a)
+    return a,b
+
+
+def jinghua(slice):
+    print(slice.shape)
+    a=[]
+    h=slice.shape[0]
+    w=slice.shape[1]
+    channels=slice.shape[2]
+    print('weight : % s,height : % s'%(w,h))
+    for row in range(h):
+        for col in range(w):
+            for c in range(channels):
+
+                pv=slice[row,col,c]
+                while(pv==255):
+
+                    a.append(pv)
+    for slice in slice_sets:
+        while(a.len<=w):
+            a[:]=0
+
     return pv
+'''def nihe(slice):
+    a=[]
+    global  lx
+    global ly
+    points = zip(x, y)  # 获取点
+    sorted_points = sorted(points)
+    u = [point[0] for point in sorted_points]
+    v = [point[1] for point in sorted_points]
+
+    return lx,ly'''
+def xianshi(lx,ly):
+    lx = np.array(x)
+    ly = np.array(y)
+    fl = np.polyfit(lx, ly, 2)
+    plot = plt.plot(lx, ly, 'r*')
+    plt.title('直线拟合')
+    plt.show()
+
+
+
+
 def handle_point(x, y):
     # 排序
     ux = []
@@ -141,14 +240,28 @@ def Sobel_gradient(blurred):
 
 
 if __name__ == '__main__':
-    image = cv2.imread('/home/lk/Desktop/项目/裁剪后的/final.png')
+    #image = cv2.imread('/home/lk/Desktop/项目/裁剪后的/thresh.png')
+    img = cv2.imread('/home/lk/Desktop/项目/裁剪后的/thresh2.png')
 
+    gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+    ret, binary = cv2.threshold(gray, 80, 255, cv2.THRESH_BINARY)
+
+    contours, hierarchy = cv2.findContours(binary, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
+
+    for i, contour in enumerate(contours):
+        x, y, w, h = cv2.boundingRect(contour)  # 外接矩形
+        mm = cv2.moments(contour)  # 几何矩
+
+        approxCurve = cv2.approxPolyDP(contour, 0, True)  # 多边形逼近
+        if approxCurve.shape[0] > 3:  # 多边形边大于6就显示
+            cv2.drawContours(img, contours, i, (0, 255, 0), 2)
+    image=img
     # 自定义滑动窗口的大小
     w = image.shape[1]
     h = image.shape[0]
     # 本代码将图片分为3×3，共九个子区域，winW, winH和stepSize可自行更改
-    (winW, winH) = (int(w),int(h/10))
-    stepSize = (int (w),int(h/10))
+    (winW, winH) = (int(w/4),int(h/30))
+    stepSize = (int (w/4),int(h/30))
     cnt = 0
     for (x, y, window) in sliding_window(image, stepSize=stepSize, windowSize=(winW, winH)):
         # if the window does not meet our desired window size, ignore it
@@ -156,38 +269,58 @@ if __name__ == '__main__':
             continue
         # since we do not have a classifier, we'll just draw the window
         clone = image.copy()
-        cv2.rectangle(clone, (x, y), (x + winW, y + winH), (0, 255, 0), 2)
+        cv2.rectangle(clone, (x, y), (x + winW, y + winH), (0, 0, 255), 2)
         cv2.imshow("Window", clone)
-        cv2.waitKey(1000)
+
 
         slice = image[y:y+winH,x:x+winW]
 
         cv2.namedWindow('sliding_slice',0)
         cv2.imshow('sliding_slice', slice)
-        slice = handle_img(slice)
+        slice_sets = []
+        slice_sets.append(slice)
 
-        '''b=np.array()
-        b=np.concatenate((b,slice),axis = 2)
-        cv2.imshow('sdf',b)
+        for slice in slice_sets:
 
-        cv2.waitKey(1000)'''
+            a,b=green_points(slice)
+
+
+            v=a
+
+            #v=a.reverse()
+
+            u=b
+            #v=sorted(v)
+            #u=sorted(u)
+            ''''''
+            u=np.array(u)
+            N = len(u)
+            for i in range(int(len(u) / 2)):
+                u[i], u[N - i - 1] = u[N - i - 1], u[i]
+            v=np.array(v)
+            M = len(v)
+            for i in range(int(len(v) / 2)):
+                v[i], v[M - i - 1] = v[M - i - 1], v[i]
+            fl = np.polyfit(u, v, 2)  # 用3次多项式拟合
+            pl = np.poly1d(fl)
+            lv = pl(u)  # 拟合u值,不知道为什么画图u和v是反的
+            print(pl)
+            plot1 = plt.plot(u,v, 'r*')
+            #plot2 = plt.plot(u , lv , 'b')
+            plt.show()
+        #jinghua(slice)
+
+
+
 
 
 
 
 
         cnt = cnt + 1
-    '''windowSize=(winW,winH)
-    get_slice(image,stepSize,windowSize)
-    slice_sets = get_slice(image, stepSize, windowSize)
-    for slice in slice_sets:
-        access_pixels(slice)
+        cv2.waitKey(1000)
+        cv2.destroyAllWindows()
 
 
 
-        a=cv2.boxPoints()
-        x,y,w,h=cv2.boudingRect'''
-    '''slice_sets = get_slice(image,stepSize,windowSize)
-    for slice in slice_sets:
 
-        x, y = handle_img(img)'''
