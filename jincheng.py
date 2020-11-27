@@ -121,7 +121,7 @@ def green_points(slice):
     #cv2.waitKey(0)
     #cv2.destroyAllWindows()
     #a.reverse(a)
-    return a,b
+    return a,b,d
 
 
 def jinghua(slice):
@@ -218,7 +218,13 @@ def poly_fitting(lx, ly, rx, ry):
     plt.title('poly_fitting')
     plt.show()
 
+def yuchuli(v):
 
+
+
+
+
+    return v
 
 
 
@@ -233,8 +239,30 @@ def Sobel_gradient(blurred):
     return gradX, gradY, gradient
 #def nihe(point):
 
-#def juhe(silce_sets):
-
+def linear_regression(x, y):
+  N = len(x)
+  sumx = sum(x)
+  sumy = sum(y)
+  sumx2 = sum(x ** 2)
+  sumxy = sum(x * y)
+  A = np.mat([[N, sumx], [sumx, sumx2]])
+  b = np.array([sumy, sumxy])
+  return np.linalg.solve(A, b)
+def Least_squares(x,y):
+    x_ = sum(x)/len(x)
+    y_ = sum(y)/len(y)
+    m = np.zeros(1)
+    n = np.zeros(1)
+    k = np.zeros(1)
+    p = np.zeros(1)
+    for i in np.arange(50):
+        k = (x[i]-x_)* (y[i]-y_)
+        m += k
+        p = np.square( x[i]-x_ )
+        n = n + p
+    a = m/n
+    b = y_ - a* x_
+    return a,b
 
 
 
@@ -260,8 +288,8 @@ if __name__ == '__main__':
     w = image.shape[1]
     h = image.shape[0]
     # 本代码将图片分为3×3，共九个子区域，winW, winH和stepSize可自行更改
-    (winW, winH) = (int(w/4),int(h/30))
-    stepSize = (int (w/4),int(h/30))
+    (winW, winH) = (int(w/4),int(h/20))
+    stepSize = (int (w/4),int(h/20))
     cnt = 0
     for (x, y, window) in sliding_window(image, stepSize=stepSize, windowSize=(winW, winH)):
         # if the window does not meet our desired window size, ignore it
@@ -282,32 +310,148 @@ if __name__ == '__main__':
 
         for slice in slice_sets:
 
-            a,b=green_points(slice)
+            a,b,d=green_points(slice)
+
+            v = a
+            u = b
+            '''points = zip(u, v)
+            print(points)
+            sorted_points = sorted(points)
+            u = [point[0] for point in sorted_points]
+            v = [point[1] for point in sorted_points]'''
+            z = max(v)
+            q = min(v)
+            length = z - q
+            yi = []
+            er = []
+            san = []
+            si = []
+            wu=[]
+            liu=[]
+            
+            for i in range(len(d)):
+                if 0 < v[i] - q < length / 6:
+                    yi.append(d[i])
+                elif length / 6 < v[i] - q < length / 3:
+                    er.append(d[i])
+                elif length / 3 < v[i] - q < length /2:
+
+                    san.append(d[i])
+                elif length / 2 < v[i] - q < length * 2 / 3:
 
 
-            v=a
+                    si.append(d[i])
+                elif length *2/ 3 < v[i] - q < length * 5 / 6:
 
-            #v=a.reverse()
+                    wu.append(d[i])
 
-            u=b
-            #v=sorted(v)
-            #u=sorted(u)
-            ''''''
-            u=np.array(u)
+                else:
+                    liu.append(d[i])
+            #print(len(yi))
+            #print(len(er))
+            #print(len(san))
+            changdu = [len(yi), len(er), len(san), len(si),len(wu),len(liu)]
+
+            '''for i in range(len(d)):
+                if 0 < u[i] - q < length / 4:
+                    yi.append(d[i])
+                elif length / 4 < u[i] - q < length / 2:
+                    er.append(d[i])
+                elif length / 2 < u[i] - q < length * 3 / 4:
+
+                    san.append(d[i])
+                else:
+                    si.append(d[i])
+            print(len(yi))
+            print(len(er))
+            print(len(san))
+            changdu = [len(yi), len(er), len(san), len(si)]'''
+
+            if (max(changdu) == len(yi)):
+                d=yi
+                    # while (len(yi)>len(er)|len(yi)>len(san)|len(yi)>len(si)):
+                '''for k in range(len(d)):
+                    for p in range(len(yi)):
+                        if v[k] == yi[p]:
+                            point.append(d[k])'''
+
+
+            elif (max(changdu) == len(er)):
+                d=er
+                    # while (len(yi)>len(er)|len(yi)>len(san)|len(yi)>len(si)):
+                '''for k in range(len(d)):
+                    for p in range(len(er)):
+                        if v[k] == er[p]:
+                            point.append(d[k])'''
+
+
+            elif (max(changdu) == len(san)):
+                d=san
+                    # while (len(yi)>len(er)|len(yi)>len(san)|len(yi)>len(si)):
+                '''for k in range(len(d)):
+                    for p in range(len(san)):
+                        if v[k] == san[p]:
+                            point.append(d[k])'''
+            elif (max(changdu) == len(si)):
+                d=si
+            elif (max(changdu) == len(wu)):
+                d=wu
+
+            else :
+
+                d=liu
+                    # while (len(yi)>len(er)|len(yi)>len(san)|len(yi)>len(si)):
+                '''for k in range(len(d)):
+                    for p in range(len(si)):
+                        if v[k] == si[p]:
+                            point.append(d[k])'''
+
+
+
+            #print(d)
+
+            p=[]
+            for i in range(len(d)):
+                p.append((d[i][1],d[i][0]))
+            sorted_point = sorted(p)
+            u = [point[0] for point in sorted_point]
+            v = [point[1] for point in sorted_point]
+
+
+
+
             N = len(u)
             for i in range(int(len(u) / 2)):
                 u[i], u[N - i - 1] = u[N - i - 1], u[i]
-            v=np.array(v)
+
             M = len(v)
             for i in range(int(len(v) / 2)):
                 v[i], v[M - i - 1] = v[M - i - 1], v[i]
+
+
+
+            a,b=Least_squares(u,v)
+            print(a,b)
+            v1=a*u+b
+            plt.figure(figsize=(10, 5), facecolor='w')
+            plt.plot(u, v, 'ro', lw=2, markersize=6)
+            plt.plot(u, v1, 'b-', lw=2, markersize=6)
+            plt.grid(b=True, ls=':')
+            plt.xlabel(u'X', fontsize=16)
+            plt.ylabel(u'Y', fontsize=16)
+            plt.show()
+            #v=yuchuli(v)
+            #u=np.linspace(min(u),max(u),num=50)
+            '''u = np.array(u)
+            v = np.array(v)
             fl = np.polyfit(u, v, 2)  # 用3次多项式拟合
+            #a0,a1 = linear_regression(u,v)
             pl = np.poly1d(fl)
             lv = pl(u)  # 拟合u值,不知道为什么画图u和v是反的
             print(pl)
             plot1 = plt.plot(u,v, 'r*')
             #plot2 = plt.plot(u , lv , 'b')
-            plt.show()
+            plt.show()'''
         #jinghua(slice)
 
 
