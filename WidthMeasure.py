@@ -1,3 +1,5 @@
+import MarginDetection
+
 import cv2
 import numpy as np
 import matplotlib.pyplot as plt
@@ -370,16 +372,21 @@ def file_name_walk(file_dir):
 
 
 if __name__ == '__main__':
-    #image = cv2.imread('/home/lk/Desktop/项目/裁剪后的/thresh.png')
-    img = cv2.imread('/home/lk/Desktop/项目/裁剪后的/thresh2.png')
-    img1 = cv2.imread('/home/lk/Desktop/项目/dd61ef3905306ad70e8fe659f52c271.jpg')
+    # margin = cv2.imread('./margin.png')
+    img_path = './test.jpg'
+    margin = MarginDetection.GetMargin(img_path)
+    margin = cv2.cvtColor(margin, cv2.COLOR_GRAY2BGR)
+    color = cv2.imread(img_path)
+
+
+
     #img = cv2.imread(sys.argv[1], cv2.CV_LOAD_IMAGE_UNCHANGED)
-    b = img1[:, :, 0]
-    g = img1[:, :, 1]
-    r = img1[:, :, 2]
+    b = color[:, :, 0]
+    g = color[:, :, 1]
+    r = color[:, :, 2]
     #cv2.imshow('img', img)
-    RGB=cv2.cvtColor(img1,cv2.COLOR_BGR2RGB)          #由于opencv的问题颜色需要转换
-    gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+    RGB=cv2.cvtColor(color, cv2.COLOR_BGR2RGB)          #由于opencv的问题颜色需要转换
+    gray = cv2.cvtColor(margin, cv2.COLOR_BGR2GRAY)
     ret, binary = cv2.threshold(gray, 80, 255, cv2.THRESH_BINARY)
 
     contours, hierarchy = cv2.findContours(binary, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
@@ -390,8 +397,8 @@ if __name__ == '__main__':
 
         approxCurve = cv2.approxPolyDP(contour, 0, True)  # 多边形逼近
         if approxCurve.shape[0] > 3:  # 显示多边形
-            cv2.drawContours(img, contours, i, (0, 255, 0), 2) #描边
-    image=img
+            cv2.drawContours(margin, contours, i, (0, 255, 0), 2) #描边
+    image=margin
     # 自定义滑动窗口的大小
     w = image.shape[1]
     h = image.shape[0]
@@ -423,7 +430,7 @@ if __name__ == '__main__':
 
         slice = image[y:y+winH,x:x+winW]         #设置不同图片的切片,有描边后的阈值图,还有原图,为了之后效果显示在原图上
         slice1=RGB[y:y+winH,x:x+winW]
-        slice2=img1[y:y+winH,x:x+winW]
+        slice2= color[y:y + winH, x:x + winW]
         cv2.namedWindow('sliding_slice1', 0)
         cv2.imshow('sliding_slice1', slice2)
         slice_sets1 = []
@@ -626,32 +633,32 @@ if __name__ == '__main__':
 
 
             if  u[len(u)-1] !=x and c not in diyige and c not in zuihouyige and u[0]!=x+winW :         #根据切片位置进行优化
-                cv2.line(img1, (x+winW, v11[0]), (x, v11[len(v11) - 1]), (255, 0, 255), thickness=3, lineType=8)
+                cv2.line(color, (x + winW, v11[0]), (x, v11[len(v11) - 1]), (255, 0, 255), thickness=3, lineType=8)
                 vector1=np.array([x+winW, v11[0]])
                 vector2=np.array([x, v11[len(v11) - 1]])
                 op1 = np.sqrt(np.sum(np.square(vector1 - vector2)))
                 changdu.append(op1)
             elif u[0] != x+winW and c not in zuihouyige :
-                cv2.line(img1, (x+winW, v11[0]), (u[len(u) - 1], v11[len(v11) - 1]), (255, 255, 0), thickness=3, lineType=8)
+                cv2.line(color, (x + winW, v11[0]), (u[len(u) - 1], v11[len(v11) - 1]), (255, 255, 0), thickness=3, lineType=8)
                 vector1 = np.array([x + winW, v11[0]])
                 vector2 = np.array([u[len(u) - 1], v11[len(v11) - 1]])
                 op1 = np.sqrt(np.sum(np.square(vector1 - vector2)))
                 changdu.append(op1)
             elif u[len(u)-1] != x and c not in diyige:
-                cv2.line(img1, (u[0], v11[0]), (x, v11[len(v11) - 1]), (255, 255, 255), thickness=3, lineType=8)
+                cv2.line(color, (u[0], v11[0]), (x, v11[len(v11) - 1]), (255, 255, 255), thickness=3, lineType=8)
                 vector1 = np.array([u[0], v11[0]])
                 vector2 = np.array([x, v11[len(v11) - 1]])
                 op1 = np.sqrt(np.sum(np.square(vector1 - vector2)))
                 changdu.append(op1)
             else:
-                cv2.line(img1, (u[0], v11[0]), (u[len(u) - 1], v11[len(v11) - 1]), (0, 0, 255), thickness=3, lineType=8)
+                cv2.line(color, (u[0], v11[0]), (u[len(u) - 1], v11[len(v11) - 1]), (0, 0, 255), thickness=3, lineType=8)
                 vector1 = np.array([u[0], v11[0]])
                 vector2 = np.array([u[len(u) - 1], v11[len(v11) - 1]])
                 op1 = np.sqrt(np.sum(np.square(vector1 - vector2)))
                 changdu.append(op1)
             #if u[len(v11) - 1]==x + winW&i%6!=0:
             print("第%i块木板的长度:"%c,op1)
-            cv2.imshow('nihe', img1)
+            cv2.imshow('nihe', color)
 
             #slice1=plt.plot(u, v1, 'b-', lw=2, markersize=6)
 
@@ -688,8 +695,10 @@ if __name__ == '__main__':
             c=c+1
             #cv2.imshow('sdfds',img1)
 
+    cv2.imwrite('./zhengfutunihe.jpg', color)
+
     for i in range(len(pianyi) - 4):
-        gaodu1 = H/22.5 - pianyi[i] + pianyi[i + 4]
+        gaodu1 = h/22.5 - pianyi[i] + pianyi[i + 4]
         houdu.append(gaodu1)
     print('木板的厚度:', houdu)
     '''u=np.linspace(min(u),max(u),num=50)
@@ -711,7 +720,7 @@ if __name__ == '__main__':
 
     cnt = cnt + 1
 
-    cv2.imwrite('/home/lk/Desktop/项目/效果图/zhengfutunihe.jpg',img1)
+
     cv2.waitKey(1000)
     cv2.destroyAllWindows()
 

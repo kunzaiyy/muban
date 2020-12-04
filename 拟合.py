@@ -56,7 +56,7 @@ if __name__ == '__main__':
 # !/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-import cv2 as cv
+import cv2
 import numpy as np
 import matplotlib.pyplot as plt
 import math
@@ -68,30 +68,33 @@ def handle_img(src):
 
     lx = []  # 储存X坐标
     ly = []  # 储存Y坐标
-    gray = cv.cvtColor(src, cv.COLOR_BGR2GRAY)  # 灰度
-    ret, binary = cv.threshold(gray, 0, 255, cv.THRESH_BINARY | cv.THRESH_OTSU)  # 二值化
-    contours, heriachy = cv.findContours(binary, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_SIMPLE)  # 获取轮廓
+    gray = cv2.cvtColor(src, cv2.COLOR_BGR2GRAY)  # 灰度
+    ret, binary = cv2.threshold(gray, 0, 255, cv2.THRESH_BINARY | cv2.THRESH_OTSU)  # 二值化
+    contours, heriachy = cv2.findContours(binary, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)  # 获取轮廓
 
     for i, contour in enumerate(contours):
-        x, y, w, h = cv.boundingRect(contour)  # 外接矩形
-        mm = cv.moments(contour)  # 几何矩
+        x, y, w, h = cv2.boundingRect(contour)  # 外接矩形
+        mm = cv2.moments(contour)  # 几何矩
 
-        approxCurve = cv.approxPolyDP(contour, 4, True)  # 多边形逼近
+        approxCurve = cv2.approxPolyDP(contour, 4, True)  # 多边形逼近
         if approxCurve.shape[0] > 5:  # 多边形边大于6就显示
-            cv.drawContours(src, contours, i, (0, 255, 0), 2)
+            cv2.drawContours(src, contours, i, (0, 255, 0), 2)
 
-        #cv.rectangle(src, (x, y), (x + w, y + h), (0, 0, 255), 2)  # 绘制外接矩形
+        #cv2.rectangle(src, (x, y), (x + w, y + h), (0, 0, 255), 2)  # 绘制外接矩形
 
         # 重心
         if mm['m00'] != 0:
             cx = mm['m10'] / mm['m00']
             cy = mm['m01'] / mm['m00']
-            cv.circle(src, (np.int(cx), np.int(cy)), 3, (0, 0, 255), -1)  # 绘制重心
+            cv2.circle(src, (np.int(cx), np.int(cy)), 3, (0, 0, 255), -1)  # 绘制重心
             lx.append(np.int(cx))  # 翻转x坐标，图片坐标系原点不在下边
             ly.append(l - np.int(cy))
 
-    cv.imshow("handle_img", src)
-    cv.imwrite("/home/lk/Desktop/项目/裁剪后的/123thresh6.png", src)
+    cv2.namedWindow('handle_img', 0)
+    cv2.resizeWindow('handle_img', 500, 500)
+    cv2.imshow('handle_img', src)
+
+    cv2.imwrite("./123thresh6.png", src)
     return lx, ly
 
 
@@ -151,14 +154,17 @@ def poly_fitting(lx, ly, rx, ry):
 
 
 if __name__ == "__main__":
-    img = cv.imread("/home/lk/Desktop/项目/裁剪后的/123thresh.png")
-    cv.imshow("src", img)
+    margin = cv2.imread("./margin.png")
 
-    x, y = handle_img(img)
+    cv2.namedWindow('margin', 0)
+    cv2.resizeWindow('margin', 500, 500)
+    cv2.imshow('margin', margin)
+
+    x, y = handle_img(margin)
     #lx, ly, rx, ry = handle_point(x, y)
     #poly_fitting(lx, ly, rx, ry)
 
-    cv.waitKey(0)
-    cv.destroyAllWindows()
+    cv2.waitKey(0)
+    cv2.destroyAllWindows()
 
 
