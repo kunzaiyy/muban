@@ -374,9 +374,11 @@ def file_name_walk(file_dir):
 if __name__ == '__main__':
     # margin = cv2.imread('./margin.png')
     img_path = './test.jpg'
+    color = cv2.imread(img_path)
+
+    #边缘检测
     margin = MarginDetection.GetMargin(img_path)
     margin = cv2.cvtColor(margin, cv2.COLOR_GRAY2BGR)
-    color = cv2.imread(img_path)
 
 
 
