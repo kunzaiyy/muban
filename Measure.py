@@ -12,6 +12,8 @@ import sys
 from skimage import measure,data,color
 from PIL import Image
 
+
+
 def showImg(img,title):
     plt.imshow(img)
     plt.title(title)  # 图像题目
@@ -149,12 +151,15 @@ if __name__ == '__main__':
     #TODO：将木板旋转为底边水平
     Rot2Horizon()
 
-    #计算木板层数 & 得到每个条横线的位置。
+    #TODO：判断顶层木板是否弯曲，如果不弯曲，直接可以用单条直线拟合每一条横线
+
+    #计算木板层数 & 得到每个条横线的位置。#TODO 现在是假设不弯曲，如果弯曲，不知道是否会让统计产生错误，之后需要用另外的sample测试下
     line_num, line_pos, gap = LayerStatistics(margin, marginRGB)
 
     '''
     窗口直线拟合
     '''
+    # split_col = 4  #
     split_col = 1  # 窗口列数
     for (win_pos_h, win_pos_w, window, windowRGB) in sliding_window(margin, marginRGB, line_pos, gap, line_num, split_col):
         print(win_pos_h, win_pos_w)
