@@ -33,7 +33,7 @@ def handle_img(slice):
 
     lx = []  # 储存X坐标
     ly = []  # 储存Y坐标
-    gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)  # 灰度
+    gray = cv2.cvtColor(marginRGB, cv2.COLOR_BGR2GRAY)  # 灰度
     ret, binary = cv2.threshold(gray, 0, 255, cv2.THRESH_BINARY | cv2.THRESH_OTSU)  # 二值化
     contours, heriachy = cv2.findContours(binary, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)  # 获取轮廓
 
@@ -43,15 +43,15 @@ def handle_img(slice):
 
         approxCurve = cv2.approxPolyDP(contour, 4, True)  # 多边形逼近
         if approxCurve.shape[0] > 2:  # 多边形边大于6就显示
-            cv2.drawContours(image, contours, i, (0, 255, 0), 2)
+            cv2.drawContours(marginRGB, contours, i, (0, 255, 0), 2)
 
-        cv2.rectangle(image, (x, y), (x + w, y + h), (0, 0, 255), 2)  # 绘制外接矩形
+        cv2.rectangle(marginRGB, (x, y), (x + w, y + h), (0, 0, 255), 2)  # 绘制外接矩形
 
         # 重心
         if mm['m00'] != 0:
             cx = mm['m10'] / mm['m00']
             cy = mm['m01'] / mm['m00']
-            cv2.circle(image, (np.int(cx), np.int(cy)), 3, (0, 0, 255), -1)  # 绘制重心
+            cv2.circle(marginRGB, (np.int(cx), np.int(cy)), 3, (0, 0, 255), -1)  # 绘制重心
             lx.append(np.int(cx))  # 翻转x坐标，图片坐标系原点不在下边
             ly.append(l - np.int(cy))
 
@@ -372,41 +372,40 @@ def file_name_walk(file_dir):
 
 
 if __name__ == '__main__':
-    # margin = cv2.imread('./margin.png')
+
     img_path = './test.jpg'
-    color = cv2.imread(img_path)
-
-    #边缘检测
-    margin = MarginDetection.GetMargin(img_path)
-    margin = cv2.cvtColor(margin, cv2.COLOR_GRAY2BGR)
-
-
-
-    #img = cv2.imread(sys.argv[1], cv2.CV_LOAD_IMAGE_UNCHANGED)
+    # img = cv2.imread(sys.argv[1], cv2.CV_LOAD_IMAGE_UNCHANGED)
+    color = cv2.imread(img_path,1)
     b = color[:, :, 0]
     g = color[:, :, 1]
     r = color[:, :, 2]
-    #cv2.imshow('img', img)
     RGB=cv2.cvtColor(color, cv2.COLOR_BGR2RGB)          #由于opencv的问题颜色需要转换
-    gray = cv2.cvtColor(margin, cv2.COLOR_BGR2GRAY)
-    ret, binary = cv2.threshold(gray, 80, 255, cv2.THRESH_BINARY)
 
-    contours, hierarchy = cv2.findContours(binary, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
+    #边缘检测
+    margin = MarginDetection.GetMargin(img_path)
+    # margin = cv2.imread('./margin.png')
+    contours, hierarchy = cv2.findContours(margin, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
 
+    marginRGB = cv2.cvtColor(margin, cv2.COLOR_GRAY2BGR)
     for i, contour in enumerate(contours):
         x, y, w, h = cv2.boundingRect(contour)  # 外接矩形
         mm = cv2.moments(contour)  # 几何矩
 
         approxCurve = cv2.approxPolyDP(contour, 0, True)  # 多边形逼近
         if approxCurve.shape[0] > 3:  # 显示多边形
-            cv2.drawContours(margin, contours, i, (0, 255, 0), 2) #描边
-    image=margin
-    # 自定义滑动窗口的大小
-    w = image.shape[1]
-    h = image.shape[0]
+            cv2.drawContours(marginRGB, contours, i, (0, 255, 0), 2) #描边
 
-    (winW, winH) = (int(w/4),int(h/22.5))     #窗口大小
-    stepSize = (int (w/4),int(h/22.5))
+    cv2.namedWindow('margin', 0)
+    cv2.resizeWindow('margin', 500, 500)
+    cv2.imshow('margin', marginRGB)
+    cv2.waitKey(1)
+
+
+    # 自定义滑动窗口的大小
+    w = marginRGB.shape[1]
+    h = marginRGB.shape[0]
+
+    stepSize = (winW, winH) = (int(np.floor(w/4)),int(np.floor(h/22.5)))     #窗口大小
     cnt = 0
     zhixian = []
     pianyi=[]
@@ -417,20 +416,16 @@ if __name__ == '__main__':
     zong1=[]
     zuobiao1=[]
 
-
-
-
-    for (x, y, window) in sliding_window(image, stepSize=stepSize, windowSize=(winW, winH)): #每一个窗口
+    """
+    .   @brief 遍历每一个窗口
+    .   @param x，y 窗口位置，如0,0; 648,0
+    ·   @param window 窗口图像矩阵
+    """
+    for (x, y, window) in sliding_window(marginRGB, stepSize=stepSize, windowSize=(winW, winH)):
 
         if window.shape[0] != winH or window.shape[1] != winW:  #窗口不符合设定大小就抛弃
             continue
-
-        clone = image.copy()
-        cv2.rectangle(clone, (x, y), (x + winW, y + winH), (0, 0, 255), 2)
-        cv2.imshow("Window", clone)
-
-
-        slice = image[y:y+winH,x:x+winW]         #设置不同图片的切片,有描边后的阈值图,还有原图,为了之后效果显示在原图上
+        #设置不同图片的切片,有描边后的阈值图,还有原图,为了之后效果显示在原图上
         slice1=RGB[y:y+winH,x:x+winW]
         slice2= color[y:y + winH, x:x + winW]
         cv2.namedWindow('sliding_slice1', 0)
@@ -439,9 +434,9 @@ if __name__ == '__main__':
         slice_sets1.append(slice1)
 
         cv2.namedWindow('sliding_slice',0)
-        cv2.imshow('sliding_slice', slice)
+        cv2.imshow('sliding_slice', window)
         slice_sets = []                       #所有切片集合
-        slice_sets.append(slice)
+        slice_sets.append(window)
 
         slice_sets2=[]
         slice_sets2.append(slice2)
@@ -475,12 +470,12 @@ if __name__ == '__main__':
             zuobiao1.append(zuobiao)
             print(heng1[c - 1])
 
-            a,b,d=green_points(slice)
+            a,b,d=green_points(window)
             '''q,w,d5=green_points(slice)#获取slice中所有绿色点
             a=[row for row in q if row not in heng] #去除木板间缝隙点
             b = [col for col in w if col not in zong]
             d = [pv for pv in d5 if pv not in zuobiao]'''
-            d1=bianlislice(slice)
+            d1=bianlislice(window)
             v = a
             u = b
             p = []
