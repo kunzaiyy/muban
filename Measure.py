@@ -188,12 +188,12 @@ def sliding_window(image, imageRGB, pos, gap, num, split):
                    imageRGB[ pos_v : end_v,  pos_u: pos_u+ window_w])
 
 
-def WidthMeasure(ks,bs,color,margin):
+def WidthMeasure(ks,bs,gray,color):
     # 统计直线之间的距离,更新gap
     ks = np.array(ks)
     bs = np.array(bs)
 
-    w = color.shape[1]
+    w = gray.shape[1]
 
     k = []
     b = []
@@ -206,7 +206,7 @@ def WidthMeasure(ks,bs,color,margin):
         #画线
         p1 = (0,int(b_temp))
         p2 = (w-1, int(k_temp*(w-1)+b_temp))
-        cv2.line(color, p1, p2, (255, 0, 0), 5, cv2.LINE_AA)  # draw
+        cv2.line(color, p1, p2, (255, 0, 0), 3, cv2.LINE_AA)  # draw
 
 
     # y = []
@@ -241,15 +241,34 @@ def WidthMeasure(ks,bs,color,margin):
 
     print('木层数', len(k))
 
-    #计算
-    for x in range(w):
-        y = k*x+b
-        #TODO 深度图可以直接找到木板的边缘。
-        # if(margin[y][x]==0):
-        #     continue
-        # else if
-        #         asd = 1
+    #检测缝隙
+    pts = []
+    thre = 30
 
+    for i in range(len(k)):
+        pt1 = []
+        pt2 = []
+        find = False
+        for x in range(int(w - w/10)):
+            if x < w/10:
+                continue
+            y = int(k[i]*x+b[i])
+            # TODO 深度图可以直接找到木板的边缘。
+            if not find:
+                if gray[y][x]<thre:
+                    find = True
+                    pt1 = (x,y)
+            else:
+                if gray[y][x]>thre:
+                    find = False
+                    pt2 = (x,y)
+                    if pt2[0]-pt1[0]>5:
+                        pts.append(pt1)
+                        pts.append(pt2)
+
+
+    for i in range(int(len(pts)/2)): #画缝隙
+        cv2.line(color, pts[i*2], pts[i*2+1], (255, 255, 255), 5, cv2.LINE_AA)  # draw
 
     return
 
@@ -368,6 +387,6 @@ if __name__ == '__main__':
 
     #TODO: 宽度计算 （去除缝隙等）
 
-    WidthMeasure(ks, bs, color, margin)
+    WidthMeasure(ks, bs, gray, color)
     showImg(color, 'Layercolor')
     cv2.imwrite('./colorLine.png', cv2.cvtColor(color, cv2.COLOR_RGB2BGR))
