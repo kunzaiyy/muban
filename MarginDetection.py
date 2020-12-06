@@ -43,7 +43,7 @@ def GetMargin(img_path):
     margin = Thresh_and_blur(gradient) #二值化
 
     cv2.imwrite(save_path, margin)
-    # show images
+    # show samples
     # cv2.namedWindow('margin', 0)
     # cv2.resizeWindow('margin', 500, 500)
     # cv2.imshow('margin', margin)

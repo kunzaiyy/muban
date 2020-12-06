@@ -373,7 +373,7 @@ def file_name_walk(file_dir):
 
 if __name__ == '__main__':
 
-    img_path = './test.jpg'
+    img_path = 'samples/test.jpg'
     # img = cv2.imread(sys.argv[1], cv2.CV_LOAD_IMAGE_UNCHANGED)
     color = cv2.imread(img_path,1)
     b = color[:, :, 0]
