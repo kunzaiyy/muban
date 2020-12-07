@@ -3,13 +3,13 @@
 import numpy as np
 import math
 import sys
-
+import glob
 
 import cv2
 import matplotlib.pyplot as plt
-from skimage import measure,data,color
-from PIL import Image
-import glob
+# from skimage import measure,data,color
+# from PIL import Image
+
 
 
 '''
