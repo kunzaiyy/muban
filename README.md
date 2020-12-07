@@ -3,6 +3,10 @@
 
 ####请运行Measure.py
 
+input: Color image
+
+output: Measurement renderings images & print messages 
+
 samples中包含部分测试图, 可通过修改img_path输入一张裁剪出目标木堆的color图像的路径
 
 ##

@@ -91,15 +91,15 @@ def LayerStatistics(margin, marinRGB):
     gap = np.median(gaps) # 假设大部分的线是能被检测出来的
 
 
-    print('统计得到的横线数量:', line_num)
+    print('统计得到的木层边数:', line_num)
 
 
     correct_num = ((line_pos[len(line_pos)-1] - line_pos[0]) / gap) + 1
     print('正确的横线数量:', correct_num)
     if line_num == np.round(correct_num):
-        print('成功统计到所有横线。')
+        print('成功统计到所有边数。')
     else:
-        print('未成功统计到所有横线。')
+        print('未成功统计到所有边数,进行重采样')
 
         id = 0
         while (id < line_num-1):
@@ -109,7 +109,7 @@ def LayerStatistics(margin, marinRGB):
                 line_pos = np.insert(line_pos, id+1, new_pos)
                 plt.axvline(x=new_pos, ls=":", c="red")  # 平均线
             id +=1
-
+    print('重采样结果:', line_num)
     plt.savefig('./Statistics.png')
     plt.show()
     #
@@ -239,11 +239,12 @@ def WidthMeasure(ks,bs,gray,color):
     k = np.array(k)
     b = np.array(b)
 
-    print('木层数', len(k))
+    print('最终木层数', len(k))
 
     #检测缝隙
     pts = []
     thre = 30
+
 
     for i in range(len(k)):
         pt1 = []
@@ -270,7 +271,14 @@ def WidthMeasure(ks,bs,gray,color):
     for i in range(int(len(pts)/2)): #画缝隙
         cv2.line(color, pts[i*2], pts[i*2+1], (255, 255, 255), 5, cv2.LINE_AA)  # draw
 
-    return
+    #todo 结合深度图计算每三层宽度
+    wids = []
+    for i in range(int(len(k))):
+        print('第%i层宽(cm):'% (i+1), 100)
+        wids.append(100)
+
+    wids = np.array(wids)
+    return wids
 
 
 
@@ -387,6 +395,6 @@ if __name__ == '__main__':
 
     #TODO: 宽度计算 （去除缝隙等）
 
-    WidthMeasure(ks, bs, gray, color)
+    wids = WidthMeasure(ks, bs, gray, color)
     showImg(color, 'Layercolor')
     cv2.imwrite('./colorLine.png', cv2.cvtColor(color, cv2.COLOR_RGB2BGR))
