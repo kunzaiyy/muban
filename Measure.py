@@ -156,6 +156,7 @@ def LayerStatistics(margin, marinRGB):
     return line_num, line_pos, gap
 
 # 直线拟合，剔除outline
+# #todo 如果拟合直接根据上一条线的斜率，那可以既快又准
 def LineFitting(points, gap):
     line = cv2.fitLine(points, cv2.DIST_L2, 0, 1e-2, 1e-2)
 
@@ -380,7 +381,7 @@ if __name__ == '__main__':
 
     # filenames = glob.glob('E:/Projects/widthmeasure/stage2/1/*.jpg')
     # for i, img_path in enumerate (filenames):
-    img_path = './samples/1f.jpg'
+    img_path = './samples/4.jpg'
     # img_path = './samples/test.jpg'
     color = cv2.imread(img_path, 1)
     color = cv2.cvtColor(color, cv2.COLOR_BGR2RGB)
@@ -436,16 +437,23 @@ if __name__ == '__main__':
 
         # todo 与前一条线太近，认为是同一条，去掉。
         if len(ks)>0:
-            if k > 0.05:
-                continue
-            if ( np.abs(bs[len(bs)-1]-b-win_pos_h)  < gap/2 or
-                np.abs(ks[len(ks)-1]*w+bs[len(bs)-1] - (k*w+b) - win_pos_h)  < gap/2):
+            print(math.degrees(np.abs(math.atan(ks[len(ks) - 1]) - math.atan(k))))
+            if  np.abs(math.atan(ks[len(ks)-1])-math.atan(k)) > np.pi/100: # 与上一条斜率差太多（5度）就重置斜率
+                midpx = window.shape[1]/2
+                midpy = k*midpx+b
+                k = ((ks[len(ks)-1]) *3 + k)/4 #更相信上一条线的斜率
+                b = midpy-k*midpx
+                # continue
+            if ( np.abs(bs[len(bs)-1]-b-win_pos_h)  < gap/3 or
+                np.abs(ks[len(ks)-1]*w+bs[len(bs)-1] - (k*w+b+ win_pos_h))  < gap/3):
                 if inlier_nums[len(ks)-1] *3 < inlier_num: #删除上一条线
                     ks.pop()
                     bs.pop()
                     inlier_nums.pop()
-                else:
+                else: #当前为重复的线，剔除
                     continue
+
+
 
 
         ks.append(k)
@@ -457,7 +465,7 @@ if __name__ == '__main__':
         point1 = (0,int(np.round(b)))
         point2 = (window.shape[1]-1, int(np.round(k*(window.shape[1]-1)+b)))
         cv2.line(windowRGB, point1, point2, (255, 255, 255), 4, cv2.LINE_AA) #draw
-        # showImg(windowRGB, 'marginrgb')
+        showImg(windowRGB, 'windowrgb')
 
         point1_global = (win_pos_w, int(np.round(k*(win_pos_w)+b))+win_pos_h)
         point2_global = (win_pos_w + window.shape[1]-1, int(np.round(k*(win_pos_w + window.shape[1]-1)+b))+win_pos_h)
