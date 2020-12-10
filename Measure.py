@@ -38,6 +38,18 @@ def Rot2Horizon():
 # 通过纵坐标做直方图统计，得到横边的数量、间距及粗略位置
 # todo 统计会出现很多边连在一起只被识别未一个
 def LayerStatistics(margin, marinRGB):
+    '''通过纵坐标做直方图统计，得到横边的数量、间距及粗略位置
+    获取所有属于边缘的点的纵坐标,然后将纵坐标划分为100个区间,然后在直方图上表示出每个区间的点数,并标记出区域中心点,
+    将所有点除以区间获得一个均值,设置一个inlier点的概率,与均值乘积并设置一个平行于x轴的直线表示出来,做一个筛选,将
+    点数少于这个值的区间清空,然后通过直方图的峰，判断数量、位置和间距，然后通过首尾距离除以间距，验证数量,正确数目为
+    最后一条线的位置减去第一条除以间距加上一,如果数目对,就结束,如果不对,采用设置的距离阈值乘以距离,如果木板间距大于
+    这个值,就在之间插入新的线然后再统计数目。
+
+
+    :param margin:木板图二值化后的图
+    :param marinRGB:原图
+    :return:线的数目,位置以及间距
+    '''
     bins_num = 100  # 区间数
     inlier_bin = 0.8
 
@@ -158,6 +170,13 @@ def LayerStatistics(margin, marinRGB):
 # 直线拟合，剔除outline
 # #todo 如果拟合直接根据上一条线的斜率，那可以既快又准
 def LineFitting(points, gap):
+    '''
+        完成直线拟合
+        先将事先认为是边缘的点拟合出直线,如果点到线的距离小于木板间距/3,就认为是内点,然后应用内点再次拟合为直线,再次循环,反复迭代3次
+        :param points: 获取的所有属于木板边缘的点
+        :param gap:木板间距
+        :return:拟合直线k,b,内点数目
+    '''
     line = cv2.fitLine(points, cv2.DIST_L2, 0, 1e-2, 1e-2)
 
     k = line[1] / line[0]
@@ -194,6 +213,18 @@ def LineFitting(points, gap):
 # slide a window across the image
 # 分离成split列窗口
 def sliding_window(image, imageRGB, pos, gap, num, split):
+    '''
+        将整幅图划分为一个个窗口,可根据前一步获取的边缘直线确定窗口位置,防止出现窗口中没有或出现多条边缘直线的情况
+
+
+        :param image:二值化的图
+        :param imageRGB:RGB图
+        :param pos:边缘直线位置
+        :param gap:边缘直线距离
+        :param num:直线数目
+        :param split:窗口列数
+        :return:
+    '''
     window_w = int(np.floor(image.shape[1]/split))
     window_h = int(np.floor(gap/2)*2)
     for y in range(num):
@@ -208,6 +239,7 @@ def sliding_window(image, imageRGB, pos, gap, num, split):
 
 #通过遍历做直线拟合
 def sliding_window_easy(image, imageRGB, pos, gap, num, split):
+
     window_w = int(np.floor(image.shape[1]/split))
     window_h = int(np.floor(gap/2*3))
     step = int(window_h/2)
@@ -225,6 +257,15 @@ def sliding_window_easy(image, imageRGB, pos, gap, num, split):
 
 
 def WidthMeasure(ks,bs,gray,color):
+    '''
+        找到每层木板的中间线,依靠灰度检测缝隙并用白线画出来,返回每层木板的宽度
+
+        :param ks:直线k集合
+        :param bs: 直线b集合
+        :param gray: 灰度图
+        :param color: 彩色图
+        :return:每层木板宽度
+    '''
     # 统计直线之间的距离,更新gap
     ks = np.array(ks)
     bs = np.array(bs)
@@ -321,6 +362,12 @@ def WidthMeasure(ks,bs,gray,color):
 
 
 def GetMargin(gray):
+    '''
+        得到二值化的图,并对木板中的字之类的集中轮廓进行处理
+
+        :param gray:灰度图
+        :return:处理后的二值化图
+    '''
     save_path = './margin.png'
     blur_size = 3  # 高斯模糊核大小
     threshold = 50  # 二值化阈值
@@ -460,13 +507,16 @@ if __name__ == '__main__':
         bs.append(b+win_pos_h)
         inlier_nums.append(inlier_num)
 
-
-
+        '''
+        窗口内直线的点用白色线连接
+        '''
         point1 = (0,int(np.round(b)))
         point2 = (window.shape[1]-1, int(np.round(k*(window.shape[1]-1)+b)))
         cv2.line(windowRGB, point1, point2, (255, 255, 255), 4, cv2.LINE_AA) #draw
         showImg(windowRGB, 'windowrgb')
-
+        '''
+        找到目标点在整幅图上的位置,并用白线连接
+        '''
         point1_global = (win_pos_w, int(np.round(k*(win_pos_w)+b))+win_pos_h)
         point2_global = (win_pos_w + window.shape[1]-1, int(np.round(k*(win_pos_w + window.shape[1]-1)+b))+win_pos_h)
         cv2.line(color, point1_global, point2_global, (255, 255, 255), 2, cv2.LINE_AA)  # draw
