@@ -172,7 +172,7 @@ def LayerStatistics(margin, marinRGB):
     return line_num, line_pos, gap
 
 # 直线拟合，剔除outline
-# #todo 如果拟合直接根据上一条线的斜率，那可以既快又准
+# #todo 封装到新的文件中，如果拟合直接根据上一条线的斜率，那可以既快又准
 def LineFitting(points, gap):
     '''
         完成直线拟合
@@ -230,7 +230,9 @@ def sliding_window(image, imageRGB, pos, gap, num, split):
         :return:
     '''
     window_w = int(np.floor(image.shape[1]/split))
-    window_h = int(np.floor(gap/2)*2)
+    window_h = int(np.floor(gap/2)*3)
+
+
     for y in range(num):
         for x in range(split):
             pos_v = int(pos[y] - window_h/2) if int(pos[y] - window_h/2) >=0 else 0
@@ -245,7 +247,7 @@ def sliding_window(image, imageRGB, pos, gap, num, split):
 def sliding_window_easy(image, imageRGB, pos, gap, num, split):
 
     window_w = int(np.floor(image.shape[1]/split))
-    window_h = int(np.floor(gap/2*3))
+    window_h = int(np.floor(gap/2*2))
     step = int(window_h/2)
     win_num_h = int(np.floor(image.shape[0]/step))+1 #移动步长=半个gap
 
@@ -260,10 +262,10 @@ def sliding_window_easy(image, imageRGB, pos, gap, num, split):
 
 
 
-def WidthMeasure(ks,bs,gray,color):
+def WidthMeasure(ks,bs,gray,color,depth,z):
     '''
         找到每层木板的中间线,依靠灰度检测缝隙并用白线画出来,返回每层木板的宽度
-
+        #TODO 目前只采用depth做检测
         :param ks:直线k集合
         :param bs: 直线b集合
         :param gray: 灰度图
@@ -273,9 +275,10 @@ def WidthMeasure(ks,bs,gray,color):
     # 统计直线之间的距离,更新gap
     ks = np.array(ks)
     bs = np.array(bs)
-
+    vdepth = depth.copy()
     w = gray.shape[1]
 
+    #算木板中线
     k = []
     b = []
     for i in range(len(ks)-1): #所有木板层的中间线
@@ -287,7 +290,7 @@ def WidthMeasure(ks,bs,gray,color):
         #画线
         p1 = (0,int(b_temp))
         p2 = (w-1, int(k_temp*(w-1)+b_temp))
-        cv2.line(color, p1, p2, (255, 0, 0), 3, cv2.LINE_AA)  # draw
+        # cv2.line(color, p1, p2, (255, 0, 0), 3, cv2.LINE_AA)  # draw
 
 
     # y = []
@@ -322,42 +325,109 @@ def WidthMeasure(ks,bs,gray,color):
 
     print('最终木层数', len(k))
 
+    # 检测左右边
+    bound = []
+    for i in range(len(k)):
+        l = []
+        r = []
+        # 用一条线检测
+        for x in range(int(w)):
+            y = int(np.round(k[i] * x + b[i]))
+            if depth[y,x]:
+                l = [y,x]
+                break
+        for x in range(int(w)):
+            y = int(np.round(k[i] * (w-1-x) + b[i]))
+            if depth[y,w-1-x]:
+                r = [y,w-1-x]
+                break
+        bound.append([l,r])
+
+        offset = 4        # trick TODO 左边偏少右边偏多
+        cv2.line(color, (l[1]-offset,l[0]), (r[1]-offset,r[0]), (255, 0, 0), 2, cv2.LINE_AA)  # draw
+        cv2.line(vdepth, (l[1] - offset, l[0]), (r[1] - offset, r[0]), 128, 2, cv2.LINE_AA)  # draw
+
+    bound = np.array(bound)
+
+
+
     #TODO 检测缝隙
+    #只用depth图
     pts = []
-    thre = 20
-
-
+    thre_min_dis = np.floor(color.shape[1] / 300)  # 缝隙不小于x个像素
+    thre_long = 3
+    # thre_min_num = thre_min_dis * thre_long # 缝隙像素数不小于x个像素
+    thre_min_num = 0.5  # 缝隙像素数不小于x个像素
     for i in range(len(k)):
         pt1 = []
         pt2 = []
         find = False
-        for x in range(int(w - w/10)):
-            if x < w/10:
-                continue
-            y = int(k[i]*x+b[i])
-            # TODO 深度图可以直接找到木板的边缘。
+        ptline = []
+        for x in range(bound[i,0,1], bound[i,1,1],1):
+            y = int(np.round(k[i] * x + b[i]))
             if not find:
-                if gray[y][x]<thre:
+                if not depth[y,x]:
                     find = True
-                    pt1 = (x,y)
+                    pt1 = [y,x]
             else:
-                if gray[y][x]>thre:
+                if depth[y,x]:
                     find = False
-                    pt2 = (x,y)
-                    if pt2[0]-pt1[0]>5:
-                        pts.append(pt1)
-                        pts.append(pt2)
+                    pt2 = [y,x-1]
+                    if pt2[1] - pt1[1] >= thre_min_dis:
+                        patch = depth[pt1[0]-thre_long : pt1[0]+thre_long+1, pt1[1] : pt2[1]+1]
+                        pt_inliers = np.where(patch == 0)[0]
+                        if len(pt_inliers) >= patch.shape[0]*patch.shape[1]*thre_min_num:
+                            ptline.append([pt1,pt2])
+                            for j in range(len(pts)):  # 画缝隙
+                                cv2.line(color, (pt1[1],pt1[0]), (pt2[1],pt2[0]), (0, 0, 0), 2, cv2.LINE_AA)  # draw
+                                cv2.line(vdepth, (pt1[1], pt1[0]), (pt2[1], pt2[0]), 0, 2,
+                                         cv2.LINE_AA)  # draw
+
+        pts.append(ptline)
+    pts = np.array(pts)
+    showImgGray(vdepth,'d')
+    # #只用彩色图
+    # pts = []
+    # thre = 40 # gray value小于thre就是缝隙
+    # for i in range(len(k)):
+    #     pt1 = []
+    #     pt2 = []
+    #     find = False
+    #     for x in range(int(w - w/10)):
+    #         if x < w/10:
+    #             continue
+    #         y = int(k[i]*x+b[i])
+    #         # TODO 深度图可以直接找到木板的边缘。
+    #         if not find:
+    #             if gray[y][x]<thre:
+    #                 find = True
+    #                 pt1 = (x,y)
+    #         else:
+    #             if gray[y][x]>thre:
+    #                 find = False
+    #                 pt2 = (x,y)
+    #                 if pt2[0]-pt1[0]>5:
+    #                     pts.append(pt1)
+    #                     pts.append(pt2)
+    # for i in range(int(len(pts)/2)): #画缝隙
+    #     cv2.line(color, pts[i*2], pts[i*2+1], (255, 255, 255), 2, cv2.LINE_AA)  # draw
 
 
-    for i in range(int(len(pts)/2)): #画缝隙
-        cv2.line(color, pts[i*2], pts[i*2+1], (255, 255, 255), 5, cv2.LINE_AA)  # draw
 
-    #todo 检测左右边
     #todo 结合深度图计算每三层宽度
     wids = []
-    for i in range(int(len(k))):
-        print('第%i层宽(cm):'% (i+1), 100)
-        wids.append(100)
+    for id in range(int(len(k))):
+        focal = 910.496
+        delta = abs(bound[id,1] - bound[id,0]) + [0,1] # 长度+1,#todo
+        length = np.sqrt(delta[0] ** 2 + delta[1] ** 2) / focal * z
+
+        for id1 in range(int(len(pts[id]))):
+            delta = abs(np.array(pts[id][id1][1]) - np.array(pts[id][id1][0])) + [0,1]
+            length_margin = np.sqrt(delta[0] ** 2 + delta[1] ** 2) / focal * z
+            length -=length_margin
+        wids.append(length)
+
+
 
     wids = np.array(wids)
     return wids
@@ -403,19 +473,23 @@ def GetMargin(gray):
     margin2 = margin2 - img_mean
     showImgGray(margin2,'margindelete')
 
-    min_line_length = gray.shape[0]/30
-    max_line_gap = min_line_length/5
+    min_line_length = gray.shape[1]/5
+    max_line_gap = min_line_length/20
     thres = int(min_line_length/2)
 
-    lines = cv2.HoughLinesP(margin2, 2, np.pi / 90, thres, min_line_length, max_line_gap)
 
+    lines = cv2.HoughLinesP(margin2, 2, np.pi / 180, thres, min_line_length, max_line_gap)
+    if lines.shape[0] == 0:
+        print("HoughLinesP get no lines!")
+        exit()
+    thre_min_len = gray.shape[1] / 100
     map = np.zeros(gray.shape)
     for line in lines:
         for x1, y1, x2, y2 in line:
             if abs(x2 - x1) == 0:
                 continue
             else:
-                if abs(y2-y1)/abs(x2-x1) > 0.3 or abs(y2-y1)+abs(x2-x1) < 10:
+                if abs(y2-y1)/abs(x2-x1) > 0.2 or abs(y2-y1)+abs(x2-x1) < thre_min_len:
                     continue
 
             cv2.line(map, (x1, y1), (x2, y2), 255, 3)
@@ -430,9 +504,8 @@ def GetMargin(gray):
 if __name__ == '__main__':
     # filenames = glob.glob('E:/Projects/widthmeasure/stage2/1/*.jpg')
     # for i, img_path in enumerate (filenames):
-    color_img_path = './samples/data/colorFrame1608540749.png'
-    depth_img_path = './samples/data/tranColorFrame1608540749.png'
-
+    color_img_path = './samples/data/colorFrame1608541800.png'
+    depth_img_path = './samples/data/tranColorFrame1608541800.png'
 
     color = cv2.imread(color_img_path, cv2.IMREAD_ANYCOLOR)
     depth = cv2.imread(depth_img_path, cv2.IMREAD_ANYDEPTH)
@@ -441,21 +514,19 @@ if __name__ == '__main__':
         print("Read color failed!")
         exit()
 
-    # color = cv2.cvtColor(color, cv2.COLOR_BGR2RGB)
-    # showImg(color, 'original color')
+    #亮度增强
+    color = aug.AutoBright(color)
 
-    # 亮度增强
-    rst = aug.AutoBright(color)
-
-    color = cv2.cvtColor(rst, cv2.COLOR_BGR2RGB)
+    color = cv2.cvtColor(color, cv2.COLOR_BGR2RGB)
     showImg(color, 'original color')
+
 
     depth[depth > 2500] = 0
     depth[depth < 800] = 0
     showImg(depth, 'original depth')
 
 
-    #平面拟合
+    #'''平面拟合'''
     time1 = time.time()
 
     pointcloud = geo.BackProjection(depth)
@@ -463,7 +534,8 @@ if __name__ == '__main__':
     time2 = time.time()
     print(f"back-projection time: {time2 - time1}")
 
-    plane_model, inlier_cloud = geo.PlaneFitting(pointcloud, 0.03, 10, 30, 0.01, 20)
+    #TODO 底边会连着地面
+    plane_model, inlier_cloud = geo.PlaneFitting(pointcloud, 0.05, 10, 30, 0.01, 20)
 
     time3 = time.time()
     print(f"plane fitting time: {time3 - time2}")
@@ -482,22 +554,32 @@ if __name__ == '__main__':
 
 
     #Crop + Warp 得到平行于图像与底边的目标木堆平面图
-    plane_color, d = geo.GetWarpedImg(plane_model, inlier_cloud, color)
+    plane_color, plane_depth, plane_z = geo.GetWarpedImg(plane_model, inlier_cloud, color)
 
     time5 = time.time()
     print(f"Warpping time: {time5 - time4}")
-    showImg(plane_color, 'warped plane color')
-    cv2.imwrite('./planeColor.png', cv2.cvtColor(plane_color, cv2.COLOR_RGB2BGR))
 
+    cv2.imwrite('./planeColor5.png', cv2.cvtColor(plane_color, cv2.COLOR_RGB2BGR))
+    cv2.imwrite('./planeDepth5.png', plane_depth)
+    print(plane_z)
+    color = plane_color
 
+    # color_img_path = './planeColor3.png'
+    # depth_img_path = './planeDepth3.png'
+    # color  = cv2.imread(color_img_path, cv2.IMREAD_ANYCOLOR)
+    # plane_depth = cv2.imread(depth_img_path, cv2.IMREAD_GRAYSCALE)
+    # plane_z = 1.633
+    #
+    # color = cv2.cvtColor(color, cv2.COLOR_BGR2RGB)
+    # plane_color = color
+    # showImg(plane_color, 'original color')
+    # showImgGray(plane_depth, 'original depth')
 
-
-    #TODO----------------------------------------------------------------------------------
+    ##'''窗口直线拟合'''----------------------------------------------------------------------------------
     gray = cv2.cvtColor(plane_color, cv2.COLOR_RGB2GRAY)
     #margin detection
     margin = GetMargin(gray)
     marginRGB = cv2.cvtColor(margin, cv2.COLOR_GRAY2RGB)
-    showImg(margin,'mar')
     # showImg(marginRGB,'margin')
     h, w = margin.shape
 
@@ -518,6 +600,7 @@ if __name__ == '__main__':
     inlier_nums = []
     #todo 更优的位置查找，和直线拟合
     for (win_pos_h, win_pos_w, window, windowRGB) in sliding_window(margin, marginRGB, line_pos, gap, line_num, split_col):
+    # for (win_pos_h, win_pos_w, window, windowRGB) in sliding_window_easy(margin, marginRGB, line_pos, gap, line_num, split_col):
         # print(win_pos_h, win_pos_w)
         contours, hierarchy = cv2.findContours(window, cv2.RETR_CCOMP, cv2.CHAIN_APPROX_SIMPLE)
 
@@ -566,21 +649,25 @@ if __name__ == '__main__':
         '''
         point1 = (0,int(np.round(b)))
         point2 = (window.shape[1]-1, int(np.round(k*(window.shape[1]-1)+b)))
-        cv2.line(windowRGB, point1, point2, (255, 255, 255), 4, cv2.LINE_AA) #draw
-        showImg(windowRGB, 'windowrgb')
+        cv2.line(windowRGB, point1, point2, (255, 255, 255), 1, cv2.LINE_AA) #draw
+        # showImg(windowRGB, 'windowrgb')
         '''
         找到目标点在整幅图上的位置,并用白线连接
         '''
         point1_global = (win_pos_w, int(np.round(k*(win_pos_w)+b))+win_pos_h)
         point2_global = (win_pos_w + window.shape[1]-1, int(np.round(k*(win_pos_w + window.shape[1]-1)+b))+win_pos_h)
-        cv2.line(color, point1_global, point2_global, (255, 255, 255), 2, cv2.LINE_AA)  # draw
+        cv2.line(color, point1_global, point2_global, (255, 255, 255), 1, cv2.LINE_AA)  # draw
         # cv2.line(marginRGB, point1_global, point2_global, (255, 0, 0), 2, cv2.LINE_AA)  # draw
 
     showImg(marginRGB,'margin')
     cv2.imwrite('./marginLine.png', cv2.cvtColor(marginRGB, cv2.COLOR_RGB2BGR))
 
     #TODO: 宽度计算 （去除缝隙等）
+    wids = WidthMeasure(ks, bs, gray, color, plane_depth, plane_z)
 
-    wids = WidthMeasure(ks, bs, gray, color)
+    for i in range(len(wids)):
+        print(f"{wids[i] * 100.0:.2f}")
+
+
     showImg(color, 'Layercolor')
     cv2.imwrite('./colorLine.png', cv2.cvtColor(color, cv2.COLOR_RGB2BGR))

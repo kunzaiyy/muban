@@ -10,17 +10,59 @@ import matplotlib.pyplot as plt
 
 resolution = [1080, 1920]
 intrinsic = [910.496, 910.197, 961.223, 556.013] # fx,fy,cx,cy
-scale = 1000.0
+scale = 0.001 / 1.057184072
 
+
+def LineFitting(points, gap = 5):
+    '''
+        完成直线拟合
+        先将事先认为是边缘的点拟合出直线,如果点到线的距离小于木板间距/3,就认为是内点,然后应用内点再次拟合为直线,再次循环,反复迭代3次
+        :param points: 获取的所有属于木板边缘的点
+        :param gap:木板间距
+        :return:拟合直线k,b,内点数目
+    '''
+    line = cv2.fitLine(points, cv2.DIST_L2, 0, 1e-2, 1e-2)
+
+    k = line[1] / line[0]
+    b = line[3] - k * line[2]
+    energy = 0
+    inlier_ids = []
+    inlier_num = 0
+    max_iter = 5
+    for it in range(max_iter):
+        for i,point in enumerate(points): # 找内点
+            dis = np.abs(k*point[0] - point[1] + b) / np.sqrt(k*k+1) #点到线的距离
+            if dis < gap/3:
+               inlier_ids.append(i)
+               energy +=dis
+        # print(len(ids), energy/len(ids))
+        inlier_points = []
+        for l,id in enumerate(inlier_ids):
+            inlier_points.append(points[id])
+        inlier_points = np.array(inlier_points)
+        line = cv2.fitLine(inlier_points, cv2.DIST_L2, 0, 1e-2, 1e-2)
+        k = line[1] / line[0]
+        b = line[3] - k * line[2]
+
+        inlier_num = len(inlier_ids)
+        energy = 0
+        inlier_ids.clear()
+        #TODO: 中断迭代
+
+
+
+    return k,b
 
 # project to original color image to get colors of warped image
-def WarpImg(rot, d, pos, size, color):
+def WarpImg(rot, d, pos, size, color, depth):
     colorf = np.array(color, dtype='float')
-    img = np.zeros([size[0], size[1], 3], dtype='uint8')
+    depthf = np.array(depth, dtype='float')
+    img_color = np.zeros([size[0], size[1], 3], dtype='uint8')
+    img_depth = np.zeros([size[0], size[1]], dtype='uint8')
 
     z = d
-    for u in range(img.shape[1]):
-        for v in range(img.shape[0]):
+    for u in range(img_color.shape[1]):
+        for v in range(img_color.shape[0]):
             x = (u + pos[1] - intrinsic[2]) / intrinsic[0] * z
             y = (v + pos[0] - intrinsic[3]) / intrinsic[1] * z
             point = [x, y, z]
@@ -40,18 +82,32 @@ def WarpImg(rot, d, pos, size, color):
 
             color_vmin = (umax - pt_ori[0]) * colorf[int(vmin), int(umin), :] \
                         + (pt_ori[0] - umin) * colorf[int(vmin), int(umax), :]
-
             color_vmax = (umax - pt_ori[0]) * colorf[int(vmax), int(umin), :] \
                         + (pt_ori[0] - umin) * colorf[int(vmax), int(umax), :]
-
             pt_color =  (vmax - pt_ori[1]) * color_vmin \
                         + (pt_ori[1] - vmin) * color_vmax
-            img[v,u,:] = np.array(pt_color,dtype='uint8')
+            img_color[v,u,:] = np.array(pt_color,dtype='uint8')
 
-    return img
+
+            depth_vmin = (umax - pt_ori[0]) * depthf[int(vmin), int(umin)] \
+                        + (pt_ori[0] - umin) * depthf[int(vmin), int(umax)]
+            depth_vmax = (umax - pt_ori[0]) * depthf[int(vmax), int(umin)] \
+                        + (pt_ori[0] - umin) * depthf[int(vmax), int(umax)]
+            pt_depth =  (vmax - pt_ori[1]) * depth_vmin \
+                        + (pt_ori[1] - vmin) * depth_vmax
+            img_depth[v, u] = 255 if pt_depth > 128 else 0
+
+    return img_color, img_depth
 
 
 def GetWarpedImg(plane_model, plane_points, color):
+
+    depth  = np.zeros(resolution,dtype='uint8')
+    for i, value in enumerate(plane_points):
+        u, v = To2D(value)
+        u = int(np.round(u))
+        v = int(np.round(v))
+        depth[v, u] = 255
 
     #------------------------ 将平面旋转为与xy面平行 p'=R*(p-t)+t---------------------------
     z_offset = -plane_model[3] / plane_model[2]
@@ -93,10 +149,13 @@ def GetWarpedImg(plane_model, plane_points, color):
                 pt.append([u,v])
                 break
     pt = np.array(pt)
+    k,b = LineFitting(pt, 10)
 
-    line = cv2.fitLine(pt, cv2.DIST_L2, 0, 1e-2, 1e-2)
-    k = line[1] / line[0]
+    cv2.line(img, (0,int(b)), ((img.shape[1]-1),int((img.shape[1]-1)*k+b)) , 128, 2, cv2.LINE_AA)
 
+    plt.imshow(img, cmap='gray')
+    plt.title("title")  # 图像题目
+    plt.show()
     #rot
     axis = [0,0,-1]
     cos = 1 / np.sqrt(1+k**2)
@@ -116,6 +175,8 @@ def GetWarpedImg(plane_model, plane_points, color):
     trans_points = trans_points + [0, 0, z_offset]
 
     D = np.mean(trans_points[:,2])
+    arr_std = np.max(trans_points[:,2]-D)
+    print("平面深度的最大偏差:", arr_std)
 
     #visualize
     # trans_cloud = o3d.geometry.PointCloud()
@@ -163,9 +224,9 @@ def GetWarpedImg(plane_model, plane_points, color):
     crop_img_size = [v_max-v_min+1, u_max-u_min+1]
     crop_img_pos = [v_min, u_min]
 
-    img = WarpImg(np.dot(rot2, rot), D, crop_img_pos, crop_img_size, color)
+    img, imgd = WarpImg(np.dot(rot2, rot), D, crop_img_pos, crop_img_size, color, depth)
 
-    return img, D
+    return img, imgd, D
 
 
 
@@ -230,7 +291,7 @@ def BackProjection(img):
             d = img[v,u]
             if not d:
                 continue
-            z = d / scale
+            z = d * scale
             x = (u - intrinsic[2]) / intrinsic[0] * z
             y = (v - intrinsic[3]) / intrinsic[1] * z
             point = [x, y, z]
