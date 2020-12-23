@@ -4,13 +4,19 @@ import numpy as np
 import math
 import sys
 import glob
-
+import time
 import cv2
 import matplotlib.pyplot as plt
+
+
+
+# import pyransac3d as ransac3d
+
 # from skimage import measure,data,color
 # from PIL import Image
 
-
+import AutoBrightness as aug
+import Geometry as geo
 
 '''
 当前假设：                                 解决办法：
@@ -19,6 +25,8 @@ import matplotlib.pyplot as plt
 3. 顶层发生严重弯曲
 4. 非常依赖底、层两条边的正确拟合   
 '''
+
+
 
 def showImg(img,title):
     plt.imshow(img)
@@ -29,10 +37,6 @@ def showImgGray(img,title):
     plt.imshow(img, cmap='gray')
     plt.title(title)  # 图像题目
     plt.show()
-
-# 找到底边，拟合其直线，根据直线角度将整幅图旋转到底边水平。
-def Rot2Horizon():
-    return
 
 
 # 通过纵坐标做直方图统计，得到横边的数量、间距及粗略位置
@@ -424,29 +428,79 @@ def GetMargin(gray):
     return margin
 
 if __name__ == '__main__':
-    # img_path = './test.jpg'
-
     # filenames = glob.glob('E:/Projects/widthmeasure/stage2/1/*.jpg')
     # for i, img_path in enumerate (filenames):
-    img_path = './samples/4.jpg'
-    # img_path = './samples/test.jpg'
-    color = cv2.imread(img_path, 1)
-    color = cv2.cvtColor(color, cv2.COLOR_BGR2RGB)
-    gray = cv2.cvtColor(color, cv2.COLOR_RGB2GRAY)
+    color_img_path = './samples/data/colorFrame1608540749.png'
+    depth_img_path = './samples/data/tranColorFrame1608540749.png'
+
+
+    color = cv2.imread(color_img_path, cv2.IMREAD_ANYCOLOR)
+    depth = cv2.imread(depth_img_path, cv2.IMREAD_ANYDEPTH)
+
+    if not len(color) or not len(depth):
+        print("Read color failed!")
+        exit()
+
+    # color = cv2.cvtColor(color, cv2.COLOR_BGR2RGB)
+    # showImg(color, 'original color')
+
+    # 亮度增强
+    rst = aug.AutoBright(color)
+
+    color = cv2.cvtColor(rst, cv2.COLOR_BGR2RGB)
     showImg(color, 'original color')
 
-    # TODO: 用深度图crop出木堆区域并去除背景，得到sharp的外轮廓
-    '''
-    margin detection
-    '''
+    depth[depth > 2500] = 0
+    depth[depth < 800] = 0
+    showImg(depth, 'original depth')
+
+
+    #平面拟合
+    time1 = time.time()
+
+    pointcloud = geo.BackProjection(depth)
+
+    time2 = time.time()
+    print(f"back-projection time: {time2 - time1}")
+
+    plane_model, inlier_cloud = geo.PlaneFitting(pointcloud, 0.03, 10, 30, 0.01, 20)
+
+    time3 = time.time()
+    print(f"plane fitting time: {time3 - time2}")
+
+    #DEBUG
+    color_debug = color.copy()
+    for i,value in enumerate(inlier_cloud):
+        u,v = geo.To2D(value)
+        u = int(np.round(u))
+        v = int(np.round(v))
+        color_debug[v,u,:] = color_debug[v,u,:]/2
+
+    time4 = time.time()
+    print(f"projection time: {time4 - time3}")
+    showImg(color_debug, 'color with mask')
+
+
+    #Crop + Warp 得到平行于图像与底边的目标木堆平面图
+    plane_color, d = geo.GetWarpedImg(plane_model, inlier_cloud, color)
+
+    time5 = time.time()
+    print(f"Warpping time: {time5 - time4}")
+    showImg(plane_color, 'warped plane color')
+    cv2.imwrite('./planeColor.png', cv2.cvtColor(plane_color, cv2.COLOR_RGB2BGR))
+
+
+
+
+    #TODO----------------------------------------------------------------------------------
+    gray = cv2.cvtColor(plane_color, cv2.COLOR_RGB2GRAY)
+    #margin detection
     margin = GetMargin(gray)
     marginRGB = cv2.cvtColor(margin, cv2.COLOR_GRAY2RGB)
     showImg(margin,'mar')
     # showImg(marginRGB,'margin')
     h, w = margin.shape
 
-    # TODO：将木板旋转为正面，并使底边（或整体横线）呈水平
-    Rot2Horizon()
 
     # TODO：判断顶层木板是否弯曲，如果不弯曲，直接可以用单条直线拟合每一条横线
 
