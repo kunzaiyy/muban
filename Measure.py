@@ -360,7 +360,7 @@ def WidthMeasure(ks,bs,gray,color,depth,z):
     plt.show()
 
     mi, ma = argrelextrema(data[0], np.less)[0], argrelextrema(data[0], np.greater)[0]
-    cutoff = bins_center[mi[2]]
+    cutoff = bins_center[mi[1]]
     print(cutoff)
 
 
